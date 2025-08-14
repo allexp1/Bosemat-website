@@ -1,1 +1,736 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Shield, SprayCan, BookOpen, MapPin, PlusCircle, LogOut, Edit, Trash2, X, Sparkles } from 'lucide-react';
+
+// --- Load External Libraries ---
+const quillCss = document.createElement('link');
+quillCss.href = "https://cdn.quilljs.com/1.3.6/quill.snow.css";
+quillCss.rel = "stylesheet";
+document.head.appendChild(quillCss);
+
+const quillJs = document.createElement('script');
+quillJs.src = "https://cdn.quilljs.com/1.3.6/quill.js";
+document.head.appendChild(quillJs);
+
+const supabaseJs = document.createElement('script');
+supabaseJs.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+document.head.appendChild(supabaseJs);
+
+
+// --- Supabase Configuration ---
+const supabaseUrl = 'https://mkdxvnlwcxydqynzzprp.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZHh2bmx3Y3h5ZHF5bnp6cHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNTI0NzksImV4cCI6MjA3MDcyODQ3OX0.YGeafJUPKOF2D5CVgNwYneWQMnCMSRWifW3eMgbLfoo';
+let supabase; // Will be initialized once the script is loaded
+
+// --- Gemini API Helper ---
+const callGeminiAPI = async (prompt) => {
+    const apiKey = ""; // Leave empty, handled by the environment
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    
+    const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`API call failed with status: ${response.status}`);
+        const result = await response.json();
+        
+        if (result.candidates?.[0]?.content?.parts?.[0]) {
+            return result.candidates[0].content.parts[0].text;
+        } else {
+            console.error("Unexpected API response structure:", result);
+            return "Error: Could not generate content.";
+        }
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        return "Error: Could not connect to the AI service.";
+    }
+};
+
+// --- Main Application Component ---
+export default function App() {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [activeTab, setActiveTab] = useState('locations');
+    const [isReady, setIsReady] = useState(false);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (window.supabase && window.Quill) {
+                clearInterval(interval);
+                supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+                setIsReady(true);
+            }
+        }, 100);
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleLogin = (e) => {
+        e.preventDefault();
+        if (password === 'Bosem.AT_Admin2025!') {
+            setIsAuthenticated(true);
+            setError('');
+        } else {
+            setError('Invalid password. Please try again.');
+        }
+    };
+    
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        setPassword('');
+    };
+
+    if (!isReady) {
+        return <div className="w-full h-screen flex items-center justify-center bg-[#EFECE3]"><p>Loading Admin Panel...</p></div>;
+    }
+
+    if (!isAuthenticated) {
+        return <LoginScreen password={password} setPassword={setPassword} handleLogin={handleLogin} error={error} />;
+    }
+
+    return (
+        <div className="flex h-screen bg-[#EFECE3] font-sans">
+            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} />
+            <MainContent activeTab={activeTab} />
+        </div>
+    );
+}
+
+// --- Components ---
+
+const LoginScreen = ({ password, setPassword, handleLogin, error }) => (
+    <div className="w-full h-screen flex items-center justify-center bg-[#EFECE3] p-4">
+        <div className="w-full max-w-sm mx-auto bg-white/50 rounded-lg shadow-xl p-8 backdrop-blur-sm">
+            <div className="flex flex-col items-center mb-6">
+                <div className="w-16 h-16 bg-[#3D3D61] rounded-full flex items-center justify-center mb-4">
+                    <Shield className="text-[#EFECE3]" size={32} />
+                </div>
+                <h1 className="text-2xl font-bold text-[#3D3D61]" style={{fontFamily: "'CopperplateGothic', serif"}}>BOSEM.AT CMS</h1>
+                <p className="text-[#55545C] text-sm">Admin Access</p>
+            </div>
+            <form onSubmit={handleLogin}>
+                <div className="mb-4">
+                    <label className="block text-[#55545C] text-sm font-bold mb-2" htmlFor="password">Password</label>
+                    <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-[#55545C] leading-tight focus:outline-none focus:ring-2 focus:ring-[#3D3D61]" placeholder="******************"/>
+                </div>
+                {error && <p className="text-red-500 text-xs italic mb-4">{error}</p>}
+                <button type="submit" className="w-full bg-[#3D3D61] hover:bg-[#313150] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors">Sign In</button>
+            </form>
+        </div>
+    </div>
+);
+
+const Sidebar = ({ activeTab, setActiveTab, handleLogout }) => {
+    const navItems = [
+        { id: 'perfumes', icon: SprayCan, label: 'Perfumes' },
+        { id: 'journal', icon: BookOpen, label: 'Journal' },
+        { id: 'locations', icon: MapPin, label: 'Locations' },
+    ];
+    return (
+        <div className="w-64 bg-[#3D3D61] text-[#EFECE3] flex flex-col p-4">
+            <div className="flex items-center space-x-3 mb-10 p-2">
+                <img src="https://i.ibb.co/6P6gBfG/bosem-at-icon-1.jpg" alt="BOSEM.AT Icon" className="h-10 w-10 rounded-full" />
+                <div>
+                    <span className="block font-bold text-xl" style={{fontFamily: "'CopperplateGothic', serif"}}>BOSEM.AT</span>
+                    <span className="text-xs opacity-70">ADMIN PANEL</span>
+                </div>
+            </div>
+            <nav className="flex-grow">
+                {navItems.map(item => (
+                    <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex items-center w-full text-left px-4 py-3 my-1 rounded-lg transition-colors ${activeTab === item.id ? 'bg-white/20' : 'hover:bg-white/10'}`}>
+                        <item.icon className="mr-3" size={20} />
+                        <span>{item.label}</span>
+                    </button>
+                ))}
+            </nav>
+            <div>
+                 <button onClick={handleLogout} className="flex items-center w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 transition-colors">
+                    <LogOut className="mr-3" size={20} />
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const MainContent = ({ activeTab }) => {
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'perfumes': return <PerfumesContent />;
+            case 'journal': return <JournalContent />;
+            case 'locations': return <LocationsContent />;
+            default: return <PerfumesContent />;
+        }
+    };
+    return <div className="flex-1 p-10 overflow-y-auto">{renderContent()}</div>;
+};
+
+const PerfumeModal = ({ isOpen, onClose, onSave, perfume }) => {
+    const initialFormState = { brand_name: '', name: '', audience: 'Unisex', size: 10, image_url: '', description: '', category: '', stock: 0 };
+    const [formData, setFormData] = useState(initialFormState);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    useEffect(() => {
+        if (perfume) {
+            setFormData({ ...initialFormState, ...perfume });
+        } else {
+            setFormData(initialFormState);
+        }
+    }, [perfume, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: name === 'stock' || name === 'size' ? Number(value) : value }));
+    };
+    
+    const handleGenerateDescription = async () => {
+        setIsGenerating(true);
+        const prompt = `Write a rich, evocative, and luxurious product description for a perfume with the following details. Brand: ${formData.brand_name}, Name: ${formData.name}, Category: ${formData.category}, Audience: ${formData.audience}. Keep it under 80 words.`;
+        const generatedDescription = await callGeminiAPI(prompt);
+        setFormData(prev => ({ ...prev, description: generatedDescription }));
+        setIsGenerating(false);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        await onSave(formData);
+        setIsSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#EFECE3] p-8 rounded-xl shadow-2xl w-full max-w-lg relative max-h-full overflow-y-auto">
+                <button onClick={onClose} className="absolute top-4 right-4 text-[#55545C] hover:text-[#3D3D61]"><X size={24}/></button>
+                <h3 className="text-2xl text-[#3D3D61] mb-6" style={{fontFamily: "'CopperplateGothic', serif"}}>{perfume ? 'Edit Perfume' : 'Add New Perfume'}</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Brand Name</label>
+                            <input type="text" name="brand_name" value={formData.brand_name} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Perfume Name</label>
+                            <input type="text" name="name" value={formData.name} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Audience</label>
+                            <select name="audience" value={formData.audience} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80"><option>Unisex</option><option>Women</option><option>Men</option></select>
+                        </div>
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Size (ml)</label>
+                            <input type="number" name="size" value={formData.size} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Category</label>
+                            <input type="text" name="category" value={formData.category} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Stock Level</label>
+                            <input type="number" name="stock" value={formData.stock} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Image URL</label>
+                        <input type="url" name="image_url" value={formData.image_url} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" placeholder="https://..."/>
+                    </div>
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                           <label className="block text-[#55545C] text-sm font-bold">Description</label>
+                           <button type="button" onClick={handleGenerateDescription} disabled={isGenerating} className="flex items-center text-sm text-[#3D3D61] font-semibold disabled:opacity-50">
+                               <Sparkles size={16} className="mr-1"/> {isGenerating ? 'Generating...' : 'Generate Description'}
+                           </button>
+                        </div>
+                        <textarea name="description" value={formData.description} onChange={handleFormChange} rows="4" className="w-full p-2 border rounded-lg bg-white/80"></textarea>
+                    </div>
+                    <button type="submit" disabled={isSaving} className="w-full bg-[#3D3D61] hover:bg-[#313150] text-white font-bold py-3 px-4 rounded-lg mt-6 disabled:bg-gray-400">{isSaving ? 'Saving...' : 'Save Perfume'}</button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const PerfumesContent = () => {
+    const [perfumes, setPerfumes] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingPerfume, setEditingPerfume] = useState(null);
+
+    useEffect(() => {
+        const fetchPerfumes = async () => {
+            const { data, error } = await supabase.from('perfumes').select('*').order('created_at', { ascending: false });
+            if (error) console.error("Error fetching perfumes:", error);
+            else setPerfumes(data);
+        };
+        fetchPerfumes();
+
+        const channel = supabase.channel('realtime perfumes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'perfumes' }, (payload) => {
+                fetchPerfumes();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const handleSavePerfume = async (perfumeData) => {
+        try {
+            if (editingPerfume) {
+                const { error } = await supabase.from('perfumes').update(perfumeData).eq('id', editingPerfume.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('perfumes').insert([perfumeData]);
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error("Error saving perfume:", error);
+        } finally {
+            closeModal();
+        }
+    };
+
+    const handleDeletePerfume = async (id) => {
+        if (window.confirm("Are you sure you want to delete this perfume?")) {
+            try {
+                const { error } = await supabase.from('perfumes').delete().eq('id', id);
+                if (error) throw error;
+            } catch (error) {
+                console.error("Error deleting perfume:", error);
+            }
+        }
+    };
+    
+    const openModal = (perfume = null) => {
+        setEditingPerfume(perfume);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingPerfume(null);
+    };
+
+    return (
+        <div>
+            <PerfumeModal isOpen={isModalOpen} onClose={closeModal} onSave={handleSavePerfume} perfume={editingPerfume} />
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-4xl text-[#3D3D61]" style={{fontFamily: "'CopperplateGothic', serif"}}>Manage Perfumes</h2>
+                <button onClick={() => openModal()} className="flex items-center bg-[#3D3D61] text-white font-semibold px-5 py-2 rounded-full shadow-md hover:bg-[#313150] transition-colors">
+                    <PlusCircle size={20} className="mr-2" />
+                    Add New Perfume
+                </button>
+            </div>
+            <div className="bg-white/60 p-6 rounded-xl shadow-lg">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b-2 border-[#3D3D61]/20">
+                            <th className="p-4 text-[#3E5158]">Image</th>
+                            <th className="p-4 text-[#3E5158]">Brand</th>
+                            <th className="p-4 text-[#3E5158]">Perfume Name</th>
+                            <th className="p-4 text-[#3E5158]">Category</th>
+                            <th className="p-4 text-[#3E5158]">Stock</th>
+                            <th className="p-4 text-[#3E5158] text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {perfumes.map(p => (
+                            <tr key={p.id} className="border-b border-[#3D3D61]/10">
+                                <td className="p-2"><img src={p.image_url || 'https://placehold.co/40x40/efecE3/55545C?text=?'} alt={p.name} className="w-12 h-12 object-cover rounded-md"/></td>
+                                <td className="p-4 text-[#55545C] font-semibold">{p.brand_name}</td>
+                                <td className="p-4 text-[#55545C]">{p.name}</td>
+                                <td className="p-4 text-[#55545C]">{p.category}</td>
+                                <td className="p-4 text-[#55545C]">{p.stock} units</td>
+                                <td className="p-4 text-right">
+                                    <div className="flex justify-end space-x-3">
+                                        <button onClick={() => openModal(p)} className="text-[#3E5158] hover:text-[#3D3D61]"><Edit size={18}/></button>
+                                        <button onClick={() => handleDeletePerfume(p.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18}/></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const JournalModal = ({ isOpen, onClose, onSave, entry }) => {
+    const initialFormState = { title: '', content: '', status: 'Draft', image_url: '' };
+    const [formData, setFormData] = useState(initialFormState);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const quillRef = useRef(null);
+    const quillInstance = useRef(null);
+
+    useEffect(() => {
+        if (isOpen && window.Quill) {
+            if (!quillInstance.current) {
+                quillInstance.current = new window.Quill(quillRef.current, {
+                    theme: 'snow',
+                    modules: { toolbar: [[{ 'header': [1, 2, false] }], ['bold', 'italic', 'underline'], ['link'], [{ 'list': 'ordered'}, { 'list': 'bullet' }]] }
+                });
+            }
+            if (entry) {
+                setFormData({ ...initialFormState, ...entry });
+                quillInstance.current.root.innerHTML = entry.content || '';
+            } else {
+                setFormData(initialFormState);
+                quillInstance.current.root.innerHTML = '';
+            }
+        }
+    }, [isOpen, entry]);
+
+    if (!isOpen) return null;
+
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleDraftWithAI = async () => {
+        if (!aiPrompt) return;
+        setIsGenerating(true);
+        const prompt = `Write a blog post for a luxury perfume brand's journal. The topic is: "${aiPrompt}". The tone should be sophisticated, informative, and engaging. Return the content as HTML.`;
+        const generatedContent = await callGeminiAPI(prompt);
+        if (quillInstance.current) {
+            quillInstance.current.root.innerHTML = generatedContent;
+        }
+        setIsGenerating(false);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        const content = quillInstance.current.root.innerHTML;
+        await onSave({ ...formData, content });
+        setIsSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#EFECE3] p-8 rounded-xl shadow-2xl w-full max-w-3xl relative max-h-full flex flex-col">
+                <button onClick={onClose} className="absolute top-4 right-4 text-[#55545C] hover:text-[#3D3D61]"><X size={24}/></button>
+                <h3 className="text-2xl text-[#3D3D61] mb-6" style={{fontFamily: "'CopperplateGothic', serif"}}>{entry ? 'Edit Entry' : 'New Journal Entry'}</h3>
+                <form onSubmit={handleSubmit} className="space-y-4 flex-grow flex flex-col">
+                    <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Title</label>
+                        <input type="text" name="title" value={formData.title} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                    </div>
+                    <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Featured Image URL</label>
+                        <input type="url" name="image_url" value={formData.image_url} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" placeholder="https://..."/>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input type="text" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="Enter a topic to draft with AI..." className="flex-grow p-2 border rounded-lg bg-white/80"/>
+                        <button type="button" onClick={handleDraftWithAI} disabled={isGenerating} className="flex items-center bg-[#3E5158] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#314146] transition-colors disabled:opacity-50">
+                           <Sparkles size={16} className="mr-2"/> {isGenerating ? 'Drafting...' : 'Draft with AI'}
+                        </button>
+                    </div>
+                    <div className="flex-grow h-48">
+                         <label className="block text-[#55545C] text-sm font-bold mb-2">Content</label>
+                         <div ref={quillRef} className="bg-white h-full"></div>
+                    </div>
+                    <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Status</label>
+                        <select name="status" value={formData.status} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80">
+                            <option>Draft</option>
+                            <option>Published</option>
+                        </select>
+                    </div>
+                    <button type="submit" disabled={isSaving} className="w-full bg-[#3D3D61] hover:bg-[#313150] text-white font-bold py-3 px-4 rounded-lg mt-6 disabled:bg-gray-400">{isSaving ? 'Saving...' : 'Save Entry'}</button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+
+const JournalContent = () => {
+    const [entries, setEntries] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingEntry, setEditingEntry] = useState(null);
+
+    useEffect(() => {
+        const fetchEntries = async () => {
+            const { data, error } = await supabase.from('journal').select('*').order('created_at', { ascending: false });
+            if (error) console.error("Error fetching journal entries:", error);
+            else setEntries(data);
+        };
+        fetchEntries();
+
+        const channel = supabase.channel('realtime journal')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'journal' }, (payload) => {
+                fetchEntries();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const handleSaveEntry = async (entryData) => {
+        try {
+            if (editingEntry) {
+                const { error } = await supabase.from('journal').update(entryData).eq('id', editingEntry.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('journal').insert([entryData]);
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error("Error saving entry:", error);
+        } finally {
+            closeModal();
+        }
+    };
+
+    const handleDeleteEntry = async (id) => {
+        if (window.confirm("Are you sure you want to delete this entry?")) {
+            try {
+                const { error } = await supabase.from('journal').delete().eq('id', id);
+                if (error) throw error;
+            } catch (error) {
+                console.error("Error deleting entry:", error);
+            }
+        }
+    };
+
+    const openModal = (entry = null) => {
+        setEditingEntry(entry);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingEntry(null);
+    };
+
+    return (
+        <div>
+            <JournalModal isOpen={isModalOpen} onClose={closeModal} onSave={handleSaveEntry} entry={editingEntry} />
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-4xl text-[#3D3D61]" style={{fontFamily: "'CopperplateGothic', serif"}}>Manage Journal</h2>
+                <button onClick={() => openModal()} className="flex items-center bg-[#3D3D61] text-white font-semibold px-5 py-2 rounded-full shadow-md hover:bg-[#313150] transition-colors">
+                    <PlusCircle size={20} className="mr-2" />
+                    New Journal Entry
+                </button>
+            </div>
+            <div className="bg-white/60 p-6 rounded-xl shadow-lg">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b-2 border-[#3D3D61]/20">
+                            <th className="p-4 text-[#3E5158]">Title</th>
+                            <th className="p-4 text-[#3E5158]">Date</th>
+                            <th className="p-4 text-[#3E5158]">Status</th>
+                            <th className="p-4 text-[#3E5158] text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {entries.map(e => (
+                             <tr key={e.id} className="border-b border-[#3D3D61]/10">
+                                <td className="p-4 text-[#55545C] font-semibold">{e.title}</td>
+                                <td className="p-4 text-[#55545C]">{new Date(e.created_at).toLocaleDateString()}</td>
+                                <td className="p-4 text-[#55545C]">
+                                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${e.status === 'Published' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                        {e.status}
+                                    </span>
+                                </td>
+                                <td className="p-4 text-right">
+                                    <div className="flex justify-end space-x-3">
+                                        <button onClick={() => openModal(e)} className="text-[#3E5158] hover:text-[#3D3D61]"><Edit size={18}/></button>
+                                        <button onClick={() => handleDeleteEntry(e.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18}/></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+
+const LocationsContent = () => {
+    const [locations, setLocations] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingLocation, setEditingLocation] = useState(null);
+
+    useEffect(() => {
+        const fetchLocations = async () => {
+            const { data, error } = await supabase.from('locations').select('*').order('created_at', { ascending: false });
+            if (error) console.error("Error fetching locations:", error);
+            else setLocations(data);
+        };
+        fetchLocations();
+
+        const channel = supabase.channel('realtime locations')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, (payload) => {
+                fetchLocations();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const handleSaveLocation = async (locationData) => {
+        try {
+            if (editingLocation) {
+                const { error } = await supabase.from('locations').update(locationData).eq('id', editingLocation.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('locations').insert([locationData]);
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error("Error saving location:", error);
+        } finally {
+            closeModal();
+        }
+    };
+
+    const handleDeleteLocation = async (id) => {
+        if (window.confirm("Are you sure you want to delete this location?")) {
+            try {
+                const { error } = await supabase.from('locations').delete().eq('id', id);
+                if (error) throw error;
+            } catch (error) {
+                console.error("Error deleting location:", error);
+            }
+        }
+    };
+    
+    const openModal = (location = null) => {
+        setEditingLocation(location);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingLocation(null);
+    };
+
+    return (
+        <div>
+            <LocationModal isOpen={isModalOpen} onClose={closeModal} onSave={handleSaveLocation} location={editingLocation} />
+            <div className="flex justify-between items-center mb-8">
+                <h2 className="text-4xl text-[#3D3D61]" style={{fontFamily: "'CopperplateGothic', serif"}}>Manage Locations</h2>
+                <button onClick={() => openModal()} className="flex items-center bg-[#3D3D61] text-white font-semibold px-5 py-2 rounded-full shadow-md hover:bg-[#313150] transition-colors">
+                    <PlusCircle size={20} className="mr-2" />
+                    Add New Location
+                </button>
+            </div>
+             <div className="bg-white/60 p-6 rounded-xl shadow-lg">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b-2 border-[#3D3D61]/20">
+                            <th className="p-4 text-[#3E5158]">Name (English)</th>
+                            <th className="p-4 text-[#3E5158]">Address</th>
+                            <th className="p-4 text-[#3E5158] text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {locations.map(loc => (
+                            <tr key={loc.id} className="border-b border-[#3D3D61]/10">
+                                <td className="p-4 text-[#55545C] font-semibold">{loc.name_en}</td>
+                                <td className="p-4 text-[#55545C]">{loc.address}</td>
+                                <td className="p-4 text-right">
+                                    <div className="flex justify-end space-x-3">
+                                        <button onClick={() => openModal(loc)} className="text-[#3E5158] hover:text-[#3D3D61]"><Edit size={18}/></button>
+                                        <button onClick={() => handleDeleteLocation(loc.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18}/></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const LocationModal = ({ isOpen, onClose, onSave, location }) => {
+    const initialFormState = { name_en: '', name_he: '', address: '', latitude: 0, longitude: 0 };
+    const [formData, setFormData] = useState(initialFormState);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (location) {
+            setFormData({
+                name_en: location.name_en || '',
+                name_he: location.name_he || '',
+                address: location.address || '',
+                latitude: location.latitude || 0,
+                longitude: location.longitude || 0
+            });
+        } else {
+            setFormData(initialFormState);
+        }
+    }, [location, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: name === 'latitude' || name === 'longitude' ? parseFloat(value) : value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        await onSave(formData);
+        setIsSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#EFECE3] p-8 rounded-xl shadow-2xl w-full max-w-lg relative max-h-full overflow-y-auto">
+                <button onClick={onClose} className="absolute top-4 right-4 text-[#55545C] hover:text-[#3D3D61]"><X size={24}/></button>
+                <h3 className="text-2xl text-[#3D3D61] mb-6" style={{fontFamily: "'CopperplateGothic', serif"}}>{location ? 'Edit Location' : 'Add New Location'}</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Location Name (English)</label>
+                        <input type="text" name="name_en" value={formData.name_en} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                    </div>
+                     <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Location Name (Hebrew)</label>
+                        <input type="text" name="name_he" value={formData.name_he} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                    </div>
+                    <div>
+                        <label className="block text-[#55545C] text-sm font-bold mb-2">Address</label>
+                        <input type="text" name="address" value={formData.address} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Latitude</label>
+                            <input type="number" step="any" name="latitude" value={formData.latitude} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                        <div>
+                            <label className="block text-[#55545C] text-sm font-bold mb-2">Longitude</label>
+                            <input type="number" step="any" name="longitude" value={formData.longitude} onChange={handleFormChange} className="w-full p-2 border rounded-lg bg-white/80" required />
+                        </div>
+                    </div>
+                    <button type="submit" disabled={isSaving} className="w-full bg-[#3D3D61] hover:bg-[#313150] text-white font-bold py-3 px-4 rounded-lg mt-6 disabled:bg-gray-400">{isSaving ? 'Saving...' : 'Save Location'}</button>
+                </form>
+            </div>
+        </div>
+    );
+};
 
