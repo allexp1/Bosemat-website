@@ -1,1 +1,503 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bosemat - Luxury Scents, Anytime. Anywhere.</title>
+    <link rel="icon" type="image/jpeg" href="https://i.ibb.co/6P6gBfG/bosem-at-icon-1.jpg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Forum&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Leaflet.js for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <style>
+        @font-face {
+            font-family: 'ClashDisplay';
+            src: url('https://cdn.jsdelivr.net/gh/webfontworld/clash-display/ClashDisplay-Variable.woff2') format('woff2');
+            font-weight: 200 700;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'CopperplateGothic';
+            src: url('https://cdn.jsdelivr.net/gh/wfonts/copperplate_gothic/Copperplate-Gothic-Bold.woff') format('woff');
+            font-weight: bold;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'CopperplateGothic';
+            src: url('https://cdn.jsdelivr.net/gh/wfonts/copperplate_gothic/Copperplate-Gothic-Regular.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+        :root {
+            --color-primary-accent: #3D3D61;
+            --color-primary-bg: #EFECE3;
+            --color-primary-text: #55545C;
+            --color-secondary-text: #3E5158;
+            --color-section-bg: #e9e6da;
+            --font-heading: 'CopperplateGothic', serif;
+            --font-body: 'ClashDisplay', sans-serif;
+        }
+        body { background-color: var(--color-primary-bg); color: var(--color-primary-text); font-family: var(--font-body); }
+        h1, h2, h3 { font-family: var(--font-heading); color: var(--color-primary-accent); }
+        .hebrew-font { font-family: 'Forum', serif; }
+        .section-title { font-family: var(--font-heading); font-weight: bold; font-size: 2.5rem; color: var(--color-primary-accent); text-align: center; margin-bottom: 2rem; }
+        .section-subtitle { font-family: var(--font-body); font-size: 1.125rem; color: var(--color-secondary-text); text-align: center; max-width: 48rem; margin: 0 auto 4rem; }
+        .cta-button { display: inline-block; padding: 0.75rem 2rem; background-color: var(--color-primary-accent); color: var(--color-primary-bg); font-family: var(--font-body); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 9999px; transition: all 0.3s ease; border: 2px solid transparent; }
+        .cta-button:hover { background-color: transparent; color: var(--color-primary-accent); border-color: var(--color-primary-accent); }
+        .cta-button-secondary { background-color: transparent; color: var(--color-primary-accent); border-color: var(--color-primary-accent); }
+        .cta-button-secondary:hover { background-color: var(--color-primary-accent); color: var(--color-primary-bg); }
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 40; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .modal-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); background-color: var(--color-primary-bg); border-radius: 0.5rem; z-index: 50; width: 90%; max-width: 50rem; max-height: 90vh; overflow-y: auto; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
+        .modal-content.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+        .filter-button.active { background-color: var(--color-primary-accent); color: var(--color-primary-bg); border-color: var(--color-primary-accent); }
+        .pattern-bg { background-color: var(--color-primary-bg); background-image: url("https://i.ibb.co/yWJfz3g/bosem-at-txtbase-1.jpg"); background-size: cover; background-position: center; }
+        .ql-editor { padding: 1rem; }
+        .ql-editor h1 { font-size: 2em; }
+        .ql-editor h2 { font-size: 1.5em; }
+        html { scroll-behavior: smooth; }
+        .leaflet-popup-content-wrapper { background-color: var(--color-primary-bg); border-radius: 8px; }
+        .leaflet-popup-content { color: var(--color-primary-text); }
+        .leaflet-popup-tip { background-color: var(--color-primary-bg); }
+        .nav-link { padding: 0.5rem 1rem; border-radius: 0.5rem; transition: background-color 0.2s ease-in-out; }
+        .nav-link:hover { background-color: rgba(61, 61, 97, 0.1); }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header id="header" class="fixed top-0 left-0 right-0 z-30 transition-all duration-300 bg-transparent py-3">
+        <div class="container mx-auto px-6 flex justify-between items-center">
+            <a href="#home" class="flex-shrink-0">
+                <div class="flex items-center space-x-3">
+                    <img src="https://i.ibb.co/6P6gBfG/bosem-at-icon-1.jpg" alt="Bosemat Icon" class="h-12 w-12 rounded-full">
+                    <div>
+                        <span class="block font-bold text-2xl tracking-wider" style="font-family: var(--font-heading); color: var(--color-primary-accent);">Bosemat</span>
+                        <span class="hidden lg:block text-xs tracking-widest uppercase" style="color: var(--color-secondary-text);" data-key="headerTagline">Luxury Scents. Anytime. Anywhere.</span>
+                    </div>
+                </div>
+            </a>
+            <nav class="hidden md:flex items-center gap-2">
+                <a href="#concept" class="nav-link" data-key="navConcept">Our Concept</a>
+                <a href="#scents" class="nav-link" data-key="navScents">The Scents</a>
+                <a href="#story" class="nav-link" data-key="navStory">Our Story</a>
+                <a href="#locations" class="nav-link" data-key="navLocations">Locations</a>
+                <a href="#journal" class="nav-link" data-key="navJournal">Journal</a>
+            </nav>
+            <div class="flex items-center space-x-4">
+                 <button id="lang-toggle" class="cta-button text-sm px-4 py-1">HE</button>
+                 <button id="mobile-menu-button" class="md:hidden text-3xl" style="color: var(--color-primary-accent);">&#9776;</button>
+            </div>
+        </div>
+    </header>
+    
+    <div id="mobile-menu" class="hidden fixed inset-0 z-20" style="background-color: var(--color-primary-bg);">
+        <div class="flex flex-col items-center justify-center h-full space-y-8">
+            <a href="#concept" class="mobile-nav-link text-2xl" data-key="navConcept">Our Concept</a>
+            <a href="#scents" class="mobile-nav-link text-2xl" data-key="navScents">The Scents</a>
+            <a href="#story" class="mobile-nav-link text-2xl" data-key="navStory">Our Story</a>
+            <a href="#locations" class="mobile-nav-link text-2xl" data-key="navLocations">Locations</a>
+            <a href="#journal" class="mobile-nav-link text-2xl" data-key="navJournal">Journal</a>
+        </div>
+    </div>
+
+
+    <main>
+        <section id="home" class="h-screen min-h-[700px] w-full flex items-center justify-center text-center bg-cover bg-center bg-no-repeat" style="background-image: url('https://i.ibb.co/Yd4jS55/alex00-1-minimalist-luxury-still-life-a-single-glass-perfume-bo-3f7562d9-0832-4b9a-a31b-7b243c7f873d.jpg');">
+            <div class="absolute inset-0 bg-black/20"></div>
+            <div class="relative z-10 px-4">
+                <h1 class="text-5xl md:text-7xl lg:text-8xl font-bold mb-4 text-white" style="font-family: var(--font-heading);" data-key="heroTitle">Fine Fragrance. Instantly.</h1>
+                <p class="text-lg md:text-xl max-w-2xl mx-auto mb-8 text-gray-200" data-key="heroSubtitle">Discover and enjoy niche perfumes in convenient 10ml sizes from our automated points of sale. Luxury scents, anytime, anywhere.</p>
+                <div class="space-x-4">
+                    <a href="#scents" class="cta-button" data-key="heroBtnScents">Discover The Scents</a>
+                    <a href="#locations" class="cta-button cta-button-secondary" data-key="heroBtnLocations">Find a Location</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="concept" class="py-20 md:py-32">
+            <div class="container mx-auto px-6">
+                <h2 class="section-title" data-key="conceptTitle">The Future of Fragrance</h2>
+                <p class="section-subtitle" data-key="conceptSubtitle">We've reimagined perfume retail for your modern lifestyle. Our beautifully designed automated points of sale offer a seamless, tech-forward way to access a curated collection of the world's finest niche scents.</p>
+                <div class="grid md:grid-cols-2 gap-12 items-center">
+                    <div class="rounded-lg overflow-hidden shadow-2xl">
+                        <img src="https://i.ibb.co/yNq8q7K/alex00-1-interior-of-a-modern-art-gallery-with-curved-stone-wal-90b65741-a639-4468-b4ca-26a27f55238f.jpg" alt="Bosemat Automated Fragrance Point" class="w-full h-full object-cover">
+                    </div>
+                    <div class="space-y-8">
+                        <div class="flex items-start space-x-6">
+                            <img src="https://i.ibb.co/yVz7X2G/bosem-at-icon-2.jpg" alt="Discover Icon" class="h-16 w-16 flex-shrink-0">
+                            <div>
+                                <h3 class="text-2xl font-bold mb-2" data-key="conceptStep1Title">Discover</h3>
+                                <p data-key="conceptStep1Desc">Explore our curated collection online or directly at any location. Learn about each scent's unique story and notes to find your perfect match.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-6">
+                            <img src="https://i.ibb.co/JqYxY0g/bosem-at-icon-3.jpg" alt="Select Icon" class="h-16 w-16 flex-shrink-0">
+                            <div>
+                                <h3 class="text-2xl font-bold mb-2" data-key="conceptStep2Title">Select</h3>
+                                <p data-key="conceptStep2Desc">At the machine, use the intuitive touchscreen to make your selection. It's a simple, elegant, and private shopping experience.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-6">
+                             <img src="https://i.ibb.co/GtnqL0D/bosem-at-icon-4.jpg" alt="Enjoy Icon" class="h-16 w-16 flex-shrink-0">
+                            <div>
+                                <h3 class="text-2xl font-bold mb-2" data-key="conceptStep3Title">Enjoy</h3>
+                                <p data-key="conceptStep3Desc">Receive your beautifully packaged 10ml niche perfume instantly. Perfect for your lifestyle, perfect for on-the-go.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="scents" class="py-20 md:py-32" style="background-color: var(--color-section-bg);">
+            <div class="container mx-auto px-6">
+                <h2 class="section-title" data-key="scentsTitle">The Collection</h2>
+                <p class="section-subtitle" data-key="scentsSubtitle">A curated library of niche fragrances from around the world. Each scent is chosen for its unique character, quality ingredients, and the story it tells. Filter by category to begin your journey of discovery.</p>
+                
+                <div id="filter-buttons" class="flex flex-wrap justify-center gap-2 md:gap-4 mb-12">
+                </div>
+
+                <div id="perfume-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                    <p id="loading-perfumes" class="col-span-full text-center">Loading perfumes...</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="story" class="py-20 md:py-32 pattern-bg">
+            <div class="container mx-auto px-6 max-w-4xl text-center">
+                 <img src="https://i.ibb.co/6P6gBfG/bosem-at-icon-1.jpg" alt="Bosemat Icon" class="h-20 w-20 rounded-full mx-auto mb-8">
+                <h2 class="section-title" data-key="storyTitle">The Name Behind The Scent</h2>
+                <div class="text-lg space-y-6 leading-relaxed">
+                    <p data-key="storyP1">Our name is our philosophy. In Israel, an ATM is a 'Kaspomat' – a blend of 'Kesef' (money) and 'Automat'. We took inspiration from this clever concept. 'Bosem' (בושם) is the timeless Hebrew word for perfume, rich with history. '.AT' stands for Automat, our vision for the future.</p>
+                    <p data-key="storyP2">Bosemat is where heritage meets innovation. It's the art of perfumery, reimagined for a modern life. We combine the soul of fragrance with the spirit of a start-up nation, making luxury accessible, instant, and personal. This is more than a name; it's our promise.</p>
+                </div>
+            </div>
+        </section>
+        
+        <section id="locations" class="py-20 md:py-32" style="background-color: var(--color-section-bg);">
+            <div class="container mx-auto px-6 text-center">
+                <h2 class="section-title" data-key="locationsTitle">Find a Bosemat</h2>
+                <p class="section-subtitle" data-key="locationsSubtitle">Our automated perfume points are conveniently located in premium lifestyle hubs, airports, and hotels. Find the one nearest to you.</p>
+                <div id="map" class="max-w-4xl mx-auto h-[60vh] rounded-lg shadow-2xl bg-gray-300">
+                   <p id="loading-locations" class="flex items-center justify-center h-full">Loading map...</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="journal" class="py-20 md:py-32">
+            <div class="container mx-auto px-6">
+                <h2 class="section-title" data-key="journalTitle">Scent Stories</h2>
+                <p class="section-subtitle" data-key="journalSubtitle">Explore the art and culture of fragrance. A collection of stories, interviews, and guides from the world of Bosemat.</p>
+                <div id="journal-grid" class="grid md:grid-cols-3 gap-8">
+                     <p id="loading-journal" class="col-span-full text-center">Loading journal...</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="py-16" style="background-color: var(--color-primary-text);">
+            <div class="container mx-auto px-6 text-center" style="color: var(--color-primary-bg);">
+                <a href="#home" class="flex items-center justify-center space-x-2 mb-4">
+                    <img src="https://i.ibb.co/6P6gBfG/bosem-at-icon-1.jpg" alt="Bosemat Icon" class="h-12 w-12 rounded-full">
+                    <span class="font-bold text-3xl tracking-wider" style="font-family: var(--font-heading);">Bosemat</span>
+                </a>
+                <p class="mb-8" style="font-family: var(--font-body);" data-key="footerTagline">Luxury Scents. Anytime. Anywhere.</p>
+                <div class="flex justify-center space-x-6 mb-8">
+                     <a href="#" class="hover:opacity-75">Instagram</a>
+                     <a href="#" class="hover:opacity-75">Facebook</a>
+                     <a href="#" class="hover:opacity-75">TikTok</a>
+                </div>
+                <p class="text-sm opacity-70" data-key="footerCopyright">&copy; 2025 Bosemat. All Rights Reserved.</p>
+            </div>
+        </footer>
+    </main>
+
+    <div id="modal-backdrop" class="modal-backdrop"></div>
+    <div id="perfume-modal" class="modal-content"></div>
+
+    <script type="module">
+      document.addEventListener('DOMContentLoaded', () => {
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://mkdxvnlwcxydqynzzprp.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZHh2bmx3Y3h5ZHF5bnp6cHJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNTI0NzksImV4cCI6MjA3MDcyODQ3OX0.YGeafJUPKOF2D5CVgNwYneWQMnCMSRWifW3eMgbLfoo';
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+        let allPerfumes = [];
+        let allJournalEntries = [];
+        let allLocations = [];
+        let currentLang = 'en';
+        let map;
+
+        const textContent = {
+            en: {
+                headerTagline: "Luxury Scents. Anytime. Anywhere.", navConcept: "Our Concept", navScents: "The Scents", navStory: "Our Story", navLocations: "Locations", navJournal: "Journal", heroTitle: "Fine Fragrance. Instantly.", heroSubtitle: "Discover and enjoy niche perfumes in convenient 10ml sizes from our automated points of sale. Luxury scents, anytime, anywhere.", heroBtnScents: "Discover The Scents", heroBtnLocations: "Find a Location", conceptTitle: "The Future of Fragrance", conceptSubtitle: "We've reimagined perfume retail for your modern lifestyle. Our beautifully designed automated points of sale offer a seamless, tech-forward way to access a curated collection of the world's finest niche scents.", conceptStep1Title: "Discover", conceptStep1Desc: "Explore our curated collection online or directly at any location. Learn about each scent's unique story and notes to find your perfect match.", conceptStep2Title: "Select", conceptStep2Desc: "At the machine, use the intuitive touchscreen to make your selection. It's a simple, elegant, and private shopping experience.", conceptStep3Title: "Enjoy", conceptStep3Desc: "Receive your beautifully packaged 10ml niche perfume instantly. Perfect for your lifestyle, perfect for on-the-go.", scentsTitle: "The Collection", scentsSubtitle: "A curated library of niche fragrances from around the world. Each scent is chosen for its unique character, quality ingredients, and the story it tells. Filter by category to begin your journey of discovery.", storyTitle: "The Name Behind The Scent", storyP1: "Our name is our philosophy. In Israel, an ATM is a 'Kaspomat' – a blend of 'Kesef' (money) and 'Automat'. We took inspiration from this clever concept. 'Bosem' (בושם) is the timeless Hebrew word for perfume, rich with history. '.AT' stands for Automat, our vision for the future.", storyP2: "Bosemat is where heritage meets innovation. It's the art of perfumery, reimagined for a modern life. We combine the soul of fragrance with the spirit of a start-up nation, making luxury accessible, instant, and personal. This is more than a name; it's our promise.", locationsTitle: "Find a Bosemat", locationsSubtitle: "Our automated perfume points are conveniently located in premium lifestyle hubs, airports, and hotels. Find the one nearest to you.", journalTitle: "Scent Stories", journalSubtitle: "Explore the art and culture of fragrance. A collection of stories, interviews, and guides from the world of Bosemat.", footerTagline: "Luxury Scents. Anytime. Anywhere.", footerCopyright: `© ${new Date().getFullYear()} Bosemat. All Rights Reserved.`, filterAll: "All", modalClose: "Close"
+            },
+            he: {
+                headerTagline: "ניחוחות יוקרה. בכל זמן. בכל מקום.", navConcept: "הקונספט שלנו", navScents: "הניחוחות", navStory: "הסיפור שלנו", navLocations: "מיקומים", navJournal: "מגזין", heroTitle: "ניחוחות יוקרה. באופן מיידי.", heroSubtitle: "גלו ותיהנו מבשמי נישה באריזות 10 מ\"ל נוחות מנקודות המכירה האוטומטיות שלנו. ניחוחות יוקרה, בכל זמן, בכל מקום.", heroBtnScents: "גלו את הניחוחות", heroBtnLocations: "מצאו מיקום", conceptTitle: "העתיד של עולם הבישום", conceptSubtitle: "עיצבנו מחדש את חווית רכישת הבשמים עבור אורח החיים המודרני שלכם. נקודות המכירה האוטומטיות והמעוצבות שלנו מציעות דרך חלקה ומתקדמת טכנולוגית לגלות אוסף נבחר של בשמי הנישה הטובים בעולם.", conceptStep1Title: "גילוי", conceptStep1Desc: "חקרו את האוסף הנבחר שלנו אונליין או ישירות בכל נקודה. למדו על הסיפור הייחודי והתווים של כל ניחוח כדי למצוא את ההתאמה המושלמת עבורכם.", conceptStep2Title: "בחירה", conceptStep2Desc: "במכונה, השתמשו במסך המגע האינטואיטיבי כדי לבצע את בחירתכם. זוהי חווית קנייה פשוטה, אלגנטית ופרטית.", conceptStep3Title: "הנאה", conceptStep3Desc: "קבלו את בושם הנישה שלכם באריזת 10 מ\"ל מהודרת באופן מיידי. מושלם לאורח החיים שלכם, מושלם לדרך.", scentsTitle: "הקולקציה", scentsSubtitle: "ספרייה נבחרת של ניחוחות נישה מרחבי העולם. כל ניחוח נבחר בזכות האופי הייחודי שלו, רכיבים איכותיים והסיפור שהוא מספר. סננו לפי קטגוריה כדי להתחיל את מסע הגילוי שלכם.", storyTitle: "השם שמאחורי הניחוח", storyP1: "השם שלנו הוא הפילוסופיה שלנו. בישראל, כספומט הוא שילוב של 'כסף' ו'אוטומט'. לקחנו השראה מהקונספט הגאוני הזה. 'בושם' היא המילה העברית הנצחית לניחוח, עשירה בהיסטוריה. '.AT' מייצג את ה'אוטומט', החזון שלנו לעתיד.", storyP2: "Bosemat הוא המקום בו מורשת פוגשת חדשנות. זוהי אמנות הבישום, שעוצבה מחדש לחיים מודרניים. אנו משלבים את נשמת הניחוח עם רוח הסטארט-אפ ניישן, והופכים את היוקרה לנגישה, מיידית ואישית. זה יותר משם; זו ההבטחה שלנו.", locationsTitle: "מצאו Bosemat", locationsSubtitle: "נקודות הבושם האוטומטיות שלנו ממוקמות במרכזי לייף סטייל, שדות תעופה ובתי מלון. מצאו את הקרוב אליכם.", journalTitle: "סיפורי ניחוח", journalSubtitle: "חקרו את האמנות והתרבות של עולם הבישום. אוסף של סיפורים, ראיונות ומדריכים מהעולם של Bosemat.", footerTagline: "ניחוחות יוקרה. בכל זמן, בכל מקום.", footerCopyright: `© ${new Date().getFullYear()} Bosemat. כל הזכויות שמורות.`, filterAll: "הכל", modalClose: "סגור"
+            }
+        };
+        
+        const perfumeGrid = document.getElementById('perfume-grid');
+        const filterButtonsContainer = document.getElementById('filter-buttons');
+        const journalGrid = document.getElementById('journal-grid');
+        const modal = document.getElementById('perfume-modal');
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const langToggle = document.getElementById('lang-toggle');
+        const header = document.getElementById('header');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+
+        function renderPerfumes(filter = 'All') {
+            perfumeGrid.innerHTML = '';
+            const filteredPerfumes = filter === 'All' ? allPerfumes : allPerfumes.filter(p => p.category === filter);
+
+            if (filteredPerfumes.length === 0 && allPerfumes.length > 0) {
+                 perfumeGrid.innerHTML = `<p class="col-span-full text-center">No perfumes found in this category.</p>`;
+                 return;
+            }
+
+            filteredPerfumes.forEach(perfume => {
+                const card = document.createElement('div');
+                card.className = 'perfume-card bg-white/5 rounded-lg overflow-hidden shadow-lg transform hover:-translate-y-2 transition-transform duration-300 cursor-pointer group';
+                card.dataset.id = perfume.id;
+
+                card.innerHTML = `
+                    <div class="overflow-hidden">
+                        <img src="${perfume.image_url || 'https://placehold.co/400x400/efecE3/55545C?text=Bosemat'}" alt="${perfume.name}" class="w-full h-64 object-cover transform group-hover:scale-110 transition-transform duration-500">
+                    </div>
+                    <div class="p-6 text-center">
+                        <p class="text-sm uppercase tracking-wider font-semibold" style="color: var(--color-secondary-text);">${perfume.brand_name}</p>
+                        <h3 class="text-xl font-bold my-1" style="color: var(--color-primary-accent);">${perfume.name}</h3>
+                        <p class="text-sm" style="color: var(--color-secondary-text);">${perfume.category}</p>
+                    </div>
+                `;
+                card.addEventListener('click', () => openPerfumeModal(perfume.id));
+                perfumeGrid.appendChild(card);
+            });
+        }
+        
+        function renderFilterButtons() {
+            filterButtonsContainer.innerHTML = '';
+            const allButton = document.createElement('button');
+            allButton.className = 'filter-button cta-button cta-button-secondary text-sm active';
+            allButton.textContent = textContent[currentLang].filterAll;
+            allButton.dataset.filter = 'All';
+            filterButtonsContainer.appendChild(allButton);
+
+            const categories = [...new Set(allPerfumes.map(p => p.category))];
+
+            categories.forEach(cat => {
+                if(cat) {
+                    const button = document.createElement('button');
+                    button.className = 'filter-button cta-button cta-button-secondary text-sm';
+                    button.textContent = cat;
+                    button.dataset.filter = cat;
+                    filterButtonsContainer.appendChild(button);
+                }
+            });
+            
+            addFilterListeners();
+        }
+        
+        function addFilterListeners() {
+            const buttons = document.querySelectorAll('.filter-button');
+            buttons.forEach(button => {
+                button.addEventListener('click', () => {
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    renderPerfumes(button.dataset.filter);
+                });
+            });
+        }
+
+        function openPerfumeModal(id) {
+            const perfume = allPerfumes.find(p => p.id === id);
+            
+            modal.innerHTML = `
+                <div class="grid md:grid-cols-2 gap-8 p-6 md:p-8">
+                    <img src="${perfume.image_url || 'https://placehold.co/600x600/efecE3/55545C?text=Bosemat'}" alt="${perfume.name}" class="w-full h-full object-cover rounded-lg">
+                    <div class="flex flex-col">
+                        <p class="text-md uppercase tracking-wider font-semibold" style="color: var(--color-secondary-text);">${perfume.brand_name}</p>
+                        <h2 class="text-3xl md:text-4xl font-bold mb-4" style="font-family: var(--font-heading); color: var(--color-primary-accent);">${perfume.name}</h2>
+                        <p class="mb-6 text-lg leading-relaxed ${currentLang === 'he' ? 'hebrew-font' : ''}">${perfume.description}</p>
+                        <div class="mt-auto pt-6 border-t text-sm" style="border-color: var(--color-secondary-text-text-opacity-20);">
+                           <p><strong>Category:</strong> ${perfume.category}</p>
+                           <p><strong>Audience:</strong> ${perfume.audience}</p>
+                           <p><strong>Size:</strong> ${perfume.size}ml</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="close-modal" class="absolute top-4 right-4 text-3xl font-bold" style="color: var(--color-primary-accent);">&times;</button>
+            `;
+            
+            modal.classList.add('active');
+            modalBackdrop.classList.add('active');
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+        }
+
+        function renderJournalEntries() {
+            journalGrid.innerHTML = '';
+            const publishedEntries = allJournalEntries.filter(e => e.status === 'Published');
+
+            if (publishedEntries.length === 0) {
+                journalGrid.innerHTML = `<p class="col-span-full text-center">No journal entries published yet.</p>`;
+                return;
+            }
+
+            publishedEntries.slice(0, 3).forEach(entry => {
+                const card = document.createElement('div');
+                card.className = 'journal-card group cursor-pointer';
+                card.dataset.id = entry.id;
+                
+                const excerpt = new DOMParser().parseFromString(entry.content, 'text/html').body.textContent.slice(0, 100) + '...';
+
+                card.innerHTML = `
+                    <div class="overflow-hidden rounded-lg mb-4">
+                        <img src="${entry.image_url || 'https://i.ibb.co/bL0gH3F/alex00-1-abstract-close-up-of-warm-off-white-linen-fabric-with-37b5589b-eb53-4f6c-9477-5b24a0a511ba.jpg'}" alt="${entry.title}" class="w-full h-64 object-cover transform group-hover:scale-110 transition-transform duration-500">
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 group-hover:text-opacity-80" style="color: var(--color-primary-accent);">${entry.title}</h3>
+                    <p class="text-sm">${excerpt}</p>
+                `;
+                card.addEventListener('click', () => openJournalModal(entry.id));
+                journalGrid.appendChild(card);
+            });
+        }
+
+        function openJournalModal(id) {
+            const entry = allJournalEntries.find(e => e.id === id);
+            
+            modal.innerHTML = `
+                <div class="p-6 md:p-8">
+                    <img src="${entry.image_url || 'https://placehold.co/800x400/efecE3/55545C?text=Bosemat'}" alt="${entry.title}" class="w-full h-64 object-cover rounded-lg mb-6">
+                    <h2 class="text-3xl md:text-4xl font-bold mb-4" style="font-family: var(--font-heading); color: var(--color-primary-accent);">${entry.title}</h2>
+                    <div class="prose max-w-none ql-editor">${entry.content}</div>
+                </div>
+                <button id="close-modal" class="absolute top-4 right-4 text-3xl font-bold" style="color: var(--color-primary-accent);">&times;</button>
+            `;
+            
+            modal.classList.add('active');
+            modalBackdrop.classList.add('active');
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+        }
+
+        function initializeMap() {
+            const loadingEl = document.getElementById('loading-locations');
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            if (map) {
+                map.remove();
+            }
+
+            map = L.map('map').setView([32.0853, 34.7818], 10); // Center on Tel Aviv
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+
+            allLocations.forEach(loc => {
+                const name = currentLang === 'he' ? loc.name_he : loc.name_en;
+                L.marker([loc.latitude, loc.longitude]).addTo(map)
+                    .bindPopup(`<b>${name}</b><br>${loc.address}`);
+            });
+        }
+
+        function closeModal() {
+            modal.innerHTML = '';
+            modal.classList.remove('active');
+            modalBackdrop.classList.remove('active');
+        }
+
+        function updateLanguage() {
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'he' ? 'rtl' : 'ltr';
+            
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.dataset.key;
+                if (textContent[currentLang][key]) el.innerText = textContent[currentLang][key];
+            });
+
+            document.querySelectorAll('p, a, h1, h2, h3, button, span, div').forEach(el => {
+                if (currentLang === 'he' && !el.closest('style, script')) el.classList.add('hebrew-font');
+                else el.classList.remove('hebrew-font');
+            });
+            
+            langToggle.innerText = currentLang === 'en' ? 'HE' : 'EN';
+            
+            renderFilterButtons();
+            const activeFilter = document.querySelector('.filter-button.active')?.dataset.filter || 'All';
+            renderPerfumes(activeFilter);
+            renderJournalEntries();
+            if (map) initializeMap(); // Re-render map popups if language changes
+        }
+
+        langToggle.addEventListener('click', () => {
+            currentLang = currentLang === 'en' ? 'he' : 'en';
+            updateLanguage();
+        });
+
+        modalBackdrop.addEventListener('click', closeModal);
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                header.style.backgroundColor = 'var(--color-primary-bg)';
+                header.classList.add('shadow-md');
+            } else {
+                header.style.backgroundColor = 'transparent';
+                header.classList.remove('shadow-md');
+            }
+        });
+        
+        mobileMenuButton.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+        document.querySelectorAll('.mobile-nav-link').forEach(link => link.addEventListener('click', () => mobileMenu.classList.add('hidden')));
+
+        // --- Initialize App and Fetch Data ---
+        async function fetchData() {
+            // Fetch Perfumes
+            const { data: perfumesData, error: perfumesError } = await supabaseClient.from('perfumes').select('*').order('created_at', { ascending: false });
+            if (perfumesError) {
+                console.error("Error fetching perfumes:", perfumesError);
+                document.getElementById('loading-perfumes').textContent = "Error loading perfumes.";
+            } else {
+                document.getElementById('loading-perfumes').style.display = 'none';
+                allPerfumes = perfumesData;
+                if (allPerfumes.length === 0) {
+                    perfumeGrid.innerHTML = `<p class="col-span-full text-center">No perfumes found. Please add some in the CMS.</p>`;
+                }
+            }
+
+            // Fetch Journal Entries
+            const { data: journalData, error: journalError } = await supabaseClient.from('journal').select('*').order('created_at', { ascending: false });
+            if (journalError) {
+                console.error("Error fetching journal entries:", journalError);
+                document.getElementById('loading-journal').textContent = "Error loading journal entries.";
+            } else {
+                document.getElementById('loading-journal').style.display = 'none';
+                allJournalEntries = journalData;
+            }
+            
+            // Fetch Locations
+            const { data: locationsData, error: locationsError } = await supabaseClient.from('locations').select('*').order('created_at', { ascending: false });
+            if (locationsError) {
+                console.error("Error fetching locations:", locationsError);
+                document.getElementById('loading-locations').textContent = "Error loading locations.";
+            } else {
+                allLocations = locationsData;
+                initializeMap();
+            }
+            
+            updateLanguage();
+        }
+
+        fetchData();
+      });
+    </script>
+</body>
+</html>
 
